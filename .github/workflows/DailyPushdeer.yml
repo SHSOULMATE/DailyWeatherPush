@@ -1,7 +1,10 @@
 name: Weather Push
+
 on:
+  workflow_dispatch:  # 允许手动触发
   schedule:
     - cron: '30 22 * * *'  # 北京时间早上6:30触发（UTC时间22:30）
+
 jobs:
   weather-push:
     runs-on: ubuntu-latest
