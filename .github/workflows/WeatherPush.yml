@@ -30,7 +30,7 @@ jobs:
           python - <<EOF
           import requests
           import os
-          from datetime import datetime, timedelta
+          from datetime import datetime
 
           def push_message(message):
               """推送消息到 PushDeer"""
@@ -40,6 +40,33 @@ jobs:
                   print("消息推送成功！")
               else:
                   print(f"消息推送失败，状态码：{response.status_code}")
+
+          def translate_skycon(skycon):
+              """将天气状况从英文转换为中文"""
+              skycon_map = {
+                  "CLEAR_DAY": "晴天",
+                  "CLEAR_NIGHT": "晴夜",
+                  "PARTLY_CLOUDY_DAY": "多云",
+                  "PARTLY_CLOUDY_NIGHT": "多云",
+                  "CLOUDY": "阴天",
+                  "LIGHT_RAIN": "小雨",
+                  "MODERATE_RAIN": "中雨",
+                  "HEAVY_RAIN": "大雨",
+                  "STORM_RAIN": "暴雨",
+                  "FOG": "雾",
+                  "LIGHT_SNOW": "小雪",
+                  "MODERATE_SNOW": "中雪",
+                  "HEAVY_SNOW": "大雪",
+                  "STORM_SNOW": "暴雪",
+                  "DUST": "浮尘",
+                  "SAND": "沙尘",
+                  "WIND": "大风"
+              }
+              return skycon_map.get(skycon, skycon)
+
+          def format_date(date_str):
+              """将日期格式从 '2025-01-30T00:00+08:00' 转换为 '2025-01-30'"""
+              return date_str.split('T')[0]
 
           def get_weather_info():
               """获取天气信息并推送"""
@@ -60,7 +87,7 @@ jobs:
 
                       # 提取实时天气数据
                       realtime = weather_data['result']['realtime']
-                      skycon = realtime['skycon']
+                      skycon = translate_skycon(realtime['skycon'])
                       temperature = realtime['temperature']
                       precipitation = realtime['precipitation']['local']['intensity']
                       wind_speed = realtime['wind']['speed']
@@ -78,10 +105,10 @@ jobs:
                       # 提取未来 3 天天气预报
                       daily = weather_data['result']['daily']
                       for i in range(3):  # 只取未来 3 天
-                          date = daily['temperature'][i]['date']
+                          date = format_date(daily['temperature'][i]['date'])
                           min_temp = daily['temperature'][i]['min']
                           max_temp = daily['temperature'][i]['max']
-                          skycon_desc = daily['skycon'][i]['value']
+                          skycon_desc = translate_skycon(daily['skycon'][i]['value'])
                           weather_info += (
                               f"\n{date}：\n"
                               f"天气：{skycon_desc}\n"
