@@ -2,7 +2,11 @@ name: Weather Push
 
 on:
   schedule:
-    - cron: '30 22 * * *'  # UTC时间22:30（北京时间6:30）
+    # 北京时间推送时段配置（UTC+8换算）
+    - cron: '30 22 * * *'  # 06:30 早晨推送
+    # - cron: '30 3 * * *'   # 11:30 午间推送
+    - cron: '30 11 * * *'   # 19:30 傍晚推送
+    # - cron: '30 14 * * *'  # 22:30 晚间推送
   workflow_dispatch:
 
 jobs:
