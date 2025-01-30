@@ -3,14 +3,24 @@ import os
 from datetime import datetime
 
 def push_message(message):
-    """推送消息到PushDeer"""
-    try:
-        push_url = f"https://api2.pushdeer.com/message/push?pushkey={os.getenv('PUSHDEER_KEY')}&text={message}"
-        response = requests.get(push_url)
-        response.raise_for_status()  # 自动处理HTTP错误
-        print("消息推送成功")
-    except Exception as e:
-        print(f"推送失败：{str(e)}")
+    """推送到多个设备"""
+    keys = os.getenv('PUSHDEER_KEYS', '').split(',')
+    if not keys:
+        print("未配置PUSHDEER_KEYS")
+        return
+
+    for key in keys:
+        key = key.strip()
+        if not key:
+            continue
+            
+        try:
+            push_url = f"https://api2.pushdeer.com/message/push?pushkey={key}&text={message}"
+            response = requests.get(push_url, timeout=5)
+            response.raise_for_status()
+            print(f"推送到 {key[:3]}... 成功")
+        except Exception as e:
+            print(f"推送到 {key[:3]}... 失败：{str(e)}")
 
 def translate_skycon(skycon):
     """天气现象中英对照（含Emoji）"""
