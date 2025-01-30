@@ -1,131 +1,71 @@
-name: Weather Push
+def get_weather_info():
+    """获取天气信息并推送"""
+    try:
+        # 彩云天气 API
+        location = "121.4737,31.2304"  # 上海经纬度
+        api_url = f"https://api.caiyunapp.com/v2.6/{os.getenv('CAIYUN_API_KEY')}/{location}/weather.json"
 
-on:
-  schedule:
-    - cron: '30 22 * * *'  # 北京时间早上6:30触发（UTC时间22:30）
-  workflow_dispatch:  # 允许手动触发
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            weather_data = response.json()
 
-jobs:
-  weather-push:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+            if weather_data.get('status') != 'ok':
+                push_message("天气API返回状态异常")
+                return
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.8'
+            # 提取实时天气数据
+            realtime = weather_data['result']['realtime']
+            daily = weather_data['result']['daily']
+            
+            # 实时天气处理
+            skycon = translate_skycon(realtime['skycon'])
+            temperature = round(realtime['temperature'])
+            precipitation = realtime['precipitation']['local']['intensity']  # 结构未变化
+            wind_speed = round(realtime['wind']['speed'])
+            aqi = realtime['air_quality']['aqi']['chn']
+            comfort = realtime['life_index']['comfort']['desc']
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
+            # 组装实时天气信息
+            weather_info = (
+                f"【实时天气】{skycon}\n"
+                f"温度：{temperature}°C | 体感：{round(realtime['apparent_temperature'])}°C\n"
+                f"风速：{wind_speed}m/s | 空气质量：{aqi}({realtime['air_quality']['description']['chn']})\n"
+                f"降水强度：{precipitation}mm/h | 舒适度：{comfort}\n"
+                "----------------------"
+            )
 
-      - name: Get and push weather info
-        env:
-          CAIYUN_API_KEY: ${{ secrets.CAIYUN_API_KEY }}
-          PUSHDEER_KEY: ${{ secrets.PUSHDEER_KEY }}
-        run: |
-          python - <<EOF
-          import requests
-          import os
-          from datetime import datetime
+            # 未来3天预报处理
+            for i in range(3):
+                date = format_date(daily['skycon'][i]['date'])
+                day_skycon = translate_skycon(daily['skycon'][i]['value'])
+                temp_max = round(daily['temperature'][i]['max'])
+                temp_min = round(daily['temperature'][i]['min'])
+                prob_rain = daily['precipitation'][i]['probability']  # 新增降水概率
+                
+                weather_info += (
+                    f"\n【{date}】\n"
+                    f"{day_skycon} | 降水概率{prob_rain}%\n"
+                    f"气温：{temp_min}°C ~ {temp_max}°C\n"
+                )
 
-          def push_message(message):
-              """推送消息到 PushDeer"""
-              push_url = f"https://api2.pushdeer.com/message/push?pushkey={os.getenv('PUSHDEER_KEY')}&text={message}"
-              response = requests.get(push_url)
-              if response.status_code == 200:
-                  print("消息推送成功！")
-              else:
-                  print(f"消息推送失败，状态码：{response.status_code}")
+            # 添加预警信息（如果有）
+            if 'alert' in weather_data['result']:
+                weather_info += "\n【预警信息】\n" + weather_data['result']['alert']['content']
 
-          def translate_skycon(skycon):
-              """将天气状况从英文转换为中文"""
-              skycon_map = {
-                  "CLEAR_DAY": "晴天",
-                  "CLEAR_NIGHT": "晴夜",
-                  "PARTLY_CLOUDY_DAY": "多云",
-                  "PARTLY_CLOUDY_NIGHT": "多云",
-                  "CLOUDY": "阴天",
-                  "LIGHT_RAIN": "小雨",
-                  "MODERATE_RAIN": "中雨",
-                  "HEAVY_RAIN": "大雨",
-                  "STORM_RAIN": "暴雨",
-                  "FOG": "雾",
-                  "LIGHT_SNOW": "小雪",
-                  "MODERATE_SNOW": "中雪",
-                  "HEAVY_SNOW": "大雪",
-                  "STORM_SNOW": "暴雪",
-                  "DUST": "浮尘",
-                  "SAND": "沙尘",
-                  "WIND": "大风"
-              }
-              return skycon_map.get(skycon, skycon)
+            # 添加生活指数
+            weather_info += "\n【生活指数】\n"
+            for i in range(3):
+                date = format_date(daily['life_index']['ultraviolet'][i]['date'])
+                uv = daily['life_index']['ultraviolet'][i]['index']
+                dressing = daily['life_index']['dressing'][i]['desc']
+                weather_info += f"{date} | 紫外线{uv}级 | 穿衣建议：{dressing}\n"
 
-          def format_date(date_str):
-              """将日期格式从 '2025-01-30T00:00+08:00' 转换为 '2025-01-30'"""
-              return date_str.split('T')[0]
+            push_message(weather_info)
 
-          def get_weather_info():
-              """获取天气信息并推送"""
-              try:
-                  # 彩云天气 API
-                  location = "121.4737,31.2304"  # 上海徐汇区经纬度
-                  api_url = f"https://api.caiyunapp.com/v2.5/{os.getenv('CAIYUN_API_KEY')}/{location}/weather.json"
+        else:
+            push_message(f"API请求失败：{response.status_code}")
 
-                  # 获取天气数据
-                  response = requests.get(api_url)
-                  if response.status_code == 200:
-                      weather_data = response.json()
-
-                      # 检查 API 返回状态
-                      if weather_data.get('status') != 'ok':
-                          push_message("天气 API 返回状态异常，请检查 API 密钥或请求参数。")
-                          return
-
-                      # 提取实时天气数据
-                      realtime = weather_data['result']['realtime']
-                      skycon = translate_skycon(realtime['skycon'])
-                      temperature = realtime['temperature']
-                      precipitation = realtime['precipitation']['local']['intensity']
-                      wind_speed = realtime['wind']['speed']
-                      aqi = realtime['air_quality']['aqi']['chn']
-
-                      # 组装实时天气信息
-                      weather_info = (
-                          f"实时天气：{skycon}\n"
-                          f"温度：{temperature}°C\n"
-                          f"降水强度：{precipitation} mm/h\n"
-                          f"风速：{wind_speed} m/s\n"
-                          f"空气质量：{aqi}（AQI）\n"
-                      )
-
-                      # 提取未来 3 天天气预报
-                      daily = weather_data['result']['daily']
-                      for i in range(3):  # 只取未来 3 天
-                          date = format_date(daily['temperature'][i]['date'])
-                          min_temp = daily['temperature'][i]['min']
-                          max_temp = daily['temperature'][i]['max']
-                          skycon_desc = translate_skycon(daily['skycon'][i]['value'])
-                          weather_info += (
-                              f"\n{date}：\n"
-                              f"天气：{skycon_desc}\n"
-                              f"温度：{min_temp}°C ~ {max_temp}°C\n"
-                          )
-
-                      # 推送天气信息
-                      push_message(weather_info)
-
-                  else:
-                      # API 请求失败
-                      push_message(f"天气 API 请求失败，状态码：{response.status_code}")
-
-              except Exception as e:
-                  # 捕获其他异常
-                  push_message(f"获取天气信息时发生错误：{str(e)}")
-
-          # 调用函数获取天气信息
-          get_weather_info()
-          EOF
+    except KeyError as e:
+        push_message(f"数据解析错误，缺少字段：{str(e)}")
+    except Exception as e:
+        push_message(f"获取天气异常：{str(e)}")
