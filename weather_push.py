@@ -58,7 +58,7 @@ def get_weather_info():
 
         # 实时天气信息
         weather_info = "🌤️ 实时天气概况\n"
-        weather_info += "────────────────\n"
+        weather_info += "\n"
         weather_info += f"{translate_skycon(realtime['skycon'])}\n"
         weather_info += f"温度：{round(realtime['temperature'])}°C（体感{round(realtime['apparent_temperature'])}°C）\n"
         weather_info += f"风速：{round(realtime['wind']['speed'])}m/s 💨 湿度：{realtime['humidity']*100}%\n"
@@ -66,7 +66,7 @@ def get_weather_info():
 
         # 未来三天预报
         weather_info += "\n📅 三日天气预报\n"
-        weather_info += "────────────────\n"
+        weather_info += "\n"
         for i in range(3):
             date = format_date(daily['skycon'][i]['date'])
             skycon = translate_skycon(daily['skycon'][i]['value'])
@@ -77,7 +77,7 @@ def get_weather_info():
 
         # 生活指数
         weather_info += "📊 生活指数参考\n"
-        weather_info += "────────────────\n"
+        weather_info += "\n"
         for i in range(3):
             date = format_date(daily['life_index']['ultraviolet'][i]['date'])
             uv = daily['life_index']['ultraviolet'][i]['index']
@@ -89,12 +89,12 @@ def get_weather_info():
         # 预警信息
         if 'alert' in result and result['alert']['content']:
             weather_info += "⚠️ 气象预警\n"
-            weather_info += "────────────────\n"
+            weather_info += "\n"
             weather_info += result['alert']['content'] + "\n"
 
         # 关键提示
         weather_info += "\n🔍 天气提示\n"
-        weather_info += "────────────────\n"
+        weather_info += "\n"
         weather_info += result.get('forecast_keypoint', '无特别提示') + "\n"
 
         push_message(weather_info)
