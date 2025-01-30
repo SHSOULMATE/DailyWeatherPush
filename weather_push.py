@@ -1,5 +1,6 @@
 import requests
 import os
+import json
 from datetime import datetime
 
 def push_message(message):
@@ -45,29 +46,45 @@ def format_date(date_str):
     except:
         return date_str.split('T')[0]
 
-def get_weather_info():
-    """获取并处理天气信息"""
+def get_locations():
+    """从Secrets获取地区配置"""
     try:
-        # API配置
-        location = "121.4737,31.2304"  # 上海经纬度
-        api_url = f"https://api.caiyunapp.com/v2.6/{os.getenv('CAIYUN_API_KEY')}/{location}/weather.json"
-        
-        # 请求数据
-        response = requests.get(api_url, timeout=10)
+        locations_json = os.getenv('WEATHER_LOCATIONS', '[{"name": "上海", "coords": "121.4737,31.2304"}]')
+        return json.loads(locations_json)
+    except Exception as e:
+        push_message(f"❌ 地区配置解析失败：{str(e)}")
+        return []
+
+def get_weather_info():
+    """主处理函数（修改后）"""
+    locations = get_locations()
+    
+    for loc in locations:
+        try:
+            # 为每个地区生成独立报告
+            weather_info = generate_weather_report(loc)
+            if weather_info:
+                push_message(weather_info)
+        except Exception as e:
+            push_message(f"⚠️ {loc.get('name','未知地区')}数据处理失败：{str(e)}")
+
+def generate_weather_report(location):
+    """生成单个地区的完整天气报告（原逻辑封装）"""
+    try:
+        api_url = f"https://api.caiyunapp.com/v2.6/{os.getenv('CAIYUN_API_KEY')}/{location['coords']}/weather.json"
+        response = requests.get(api_url, timeout=15)
         response.raise_for_status()
         weather_data = response.json()
 
-        # 状态检查
         if weather_data.get('status') != 'ok':
-            push_message("⚠️天气API状态异常")
-            return
+            return f"⚠️ {location['name']}天气API状态异常"
 
         result = weather_data['result']
         realtime = result['realtime']
         daily = result['daily']
 
-        # 实时天气信息
-        weather_info = "🌤️ 实时天气概况\n"
+        # 生成与原始格式完全相同的报告
+        weather_info = f"🌤️ {location['name']}实时天气概况\n"
         weather_info += "\n"
         weather_info += f"{translate_skycon(realtime['skycon'])}\n"
         weather_info += "\n"
@@ -77,7 +94,7 @@ def get_weather_info():
         weather_info += "\n"
         weather_info += f"降水：{realtime['precipitation']['local']['intensity']}mm/h 🌧️ 空气质量：{realtime['air_quality']['aqi']['chn']}（{realtime['air_quality']['description']['chn']}）\n"
 
-        # 未来三天预报
+        # 三日预报
         weather_info += "\n📅 三日天气预报\n"
         weather_info += "\n"
         for i in range(3):
@@ -111,14 +128,14 @@ def get_weather_info():
         weather_info += "\n"
         weather_info += result.get('forecast_keypoint', '无特别提示') + "\n"
 
-        push_message(weather_info)
+        return weather_info
 
     except requests.exceptions.RequestException as e:
-        push_message(f"🌐 网络请求异常：{str(e)}")
+        return f"🌐 {location['name']}网络请求异常：{str(e)}"
     except KeyError as e:
-        push_message(f"🔑 数据字段缺失：{str(e)}")
+        return f"🔑 {location['name']}数据字段缺失：{str(e)}"
     except Exception as e:
-        push_message(f"❌ 未知错误：{str(e)}")
+        return f"❌ {location['name']}未知错误：{str(e)}"
 
 if __name__ == "__main__":
     get_weather_info()
