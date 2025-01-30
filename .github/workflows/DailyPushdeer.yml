@@ -29,43 +29,76 @@ jobs:
         run: |
           python - <<EOF
           import requests
-          import json
           import os
           from datetime import datetime, timedelta
 
-          # 彩云天气API
-          location = "121.4737,31.2304"  # 上海徐汇区经纬度
-          api_url = f"https://api.caiyunapp.com/locationByCityName/Shanghai/{os.getenv('CAIYUN_API_KEY')}.json"
-
-          # 获取天气数据
-          response = requests.get(api_url)
-          if response.status_code == 200:
-              weather_data = response.json()
-              print("API Response:", weather_data)  # 打印API返回的数据
-
-              # 检查返回的数据是否包含 'result' 键
-              if 'result' in weather_data:
-                  day_weather = weather_data['result']['realtime']['skycon']
-                  min_temp = weather_data['result']['daily']['temperature'][0]['min']
-                  max_temp = weather_data['result']['daily']['temperature'][0]['max']
-                  precipitation = weather_data['result']['daily']['precipitation'][0]['status']
-
-                  # 组装天气信息
-                  weather_info = f"今天的天气：白天 {day_weather}，最低温度 {min_temp} 度，最高温度 {max_temp} 度。降水情况：{precipitation}\n"
-
-                  # 获取未来一周天气数据
-                  for i in range(1, 8):
-                      date = (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d")
-                      day_temp = weather_data['result']['daily']['temperature'][i]['max']
-                      night_temp = weather_data['result']['daily']['temperature'][i]['min']
-                      precip = weather_data['result']['daily']['precipitation'][i]['status']
-                      weather_info += f"{date}：白天最高温度 {day_temp} 度，夜间最低温度 {night_temp} 度，降水情况：{precip}\n"
-
-                  # 推送天气信息到PushDeer
-                  push_url = f"https://api2.pushdeer.com/message/push?pushkey={os.getenv('PUSHDEER_KEY')}&text={weather_info}"
-                  requests.get(push_url)
+          def push_message(message):
+              """推送消息到 PushDeer"""
+              push_url = f"https://api2.pushdeer.com/message/push?pushkey={os.getenv('PUSHDEER_KEY')}&text={message}"
+              response = requests.get(push_url)
+              if response.status_code == 200:
+                  print("消息推送成功！")
               else:
-                  print("API返回的数据中缺少 'result' 键")
-          else:
-              print(f"API请求失败，状态码：{response.status_code}")
+                  print(f"消息推送失败，状态码：{response.status_code}")
+
+          def get_weather_info():
+              """获取天气信息并推送"""
+              try:
+                  # 彩云天气 API
+                  location = "121.4737,31.2304"  # 上海徐汇区经纬度
+                  api_url = f"https://api.caiyunapp.com/v2.5/{os.getenv('CAIYUN_API_KEY')}/{location}/weather.json"
+
+                  # 获取天气数据
+                  response = requests.get(api_url)
+                  if response.status_code == 200:
+                      weather_data = response.json()
+
+                      # 检查 API 返回状态
+                      if weather_data.get('status') != 'ok':
+                          push_message("天气 API 返回状态异常，请检查 API 密钥或请求参数。")
+                          return
+
+                      # 提取实时天气数据
+                      realtime = weather_data['result']['realtime']
+                      skycon = realtime['skycon']
+                      temperature = realtime['temperature']
+                      precipitation = realtime['precipitation']['local']['intensity']
+                      wind_speed = realtime['wind']['speed']
+                      aqi = realtime['air_quality']['aqi']['chn']
+
+                      # 组装实时天气信息
+                      weather_info = (
+                          f"实时天气：{skycon}\n"
+                          f"温度：{temperature}°C\n"
+                          f"降水强度：{precipitation} mm/h\n"
+                          f"风速：{wind_speed} m/s\n"
+                          f"空气质量：{aqi}（AQI）\n"
+                      )
+
+                      # 提取未来 3 天天气预报
+                      daily = weather_data['result']['daily']
+                      for i in range(3):  # 只取未来 3 天
+                          date = daily['temperature'][i]['date']
+                          min_temp = daily['temperature'][i]['min']
+                          max_temp = daily['temperature'][i]['max']
+                          skycon_desc = daily['skycon'][i]['value']
+                          weather_info += (
+                              f"\n{date}：\n"
+                              f"天气：{skycon_desc}\n"
+                              f"温度：{min_temp}°C ~ {max_temp}°C\n"
+                          )
+
+                      # 推送天气信息
+                      push_message(weather_info)
+
+                  else:
+                      # API 请求失败
+                      push_message(f"天气 API 请求失败，状态码：{response.status_code}")
+
+              except Exception as e:
+                  # 捕获其他异常
+                  push_message(f"获取天气信息时发生错误：{str(e)}")
+
+          # 调用函数获取天气信息
+          get_weather_info()
           EOF
