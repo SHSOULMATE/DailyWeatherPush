@@ -4,9 +4,9 @@ from datetime import datetime
 
 def push_message(message):
     """推送到多个设备"""
-    keys = os.getenv('PUSHDEER_KEYS', '').split(',')
+    keys = os.getenv('PUSHDEER_KEY', '').split(',')
     if not keys:
-        print("未配置PUSHDEER_KEYS")
+        print("未配置PUSHDEER_KEY")
         return
 
     for key in keys:
