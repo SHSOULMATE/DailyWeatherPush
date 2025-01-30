@@ -60,8 +60,11 @@ def get_weather_info():
         weather_info = "🌤️ 实时天气概况\n"
         weather_info += "\n"
         weather_info += f"{translate_skycon(realtime['skycon'])}\n"
+        weather_info += "\n"
         weather_info += f"温度：{round(realtime['temperature'])}°C（体感{round(realtime['apparent_temperature'])}°C）\n"
+        weather_info += "\n"
         weather_info += f"风速：{round(realtime['wind']['speed'])}m/s 💨 湿度：{realtime['humidity']*100}%\n"
+        weather_info += "\n"
         weather_info += f"降水：{realtime['precipitation']['local']['intensity']}mm/h 🌧️ 空气质量：{realtime['air_quality']['aqi']['chn']}（{realtime['air_quality']['description']['chn']}）\n"
 
         # 未来三天预报
@@ -84,6 +87,7 @@ def get_weather_info():
             dress = daily['life_index']['dressing'][i]['desc']
             comfort = daily['life_index']['comfort'][i]['desc']
             weather_info += f"{date} | 紫外线：{uv}级 | 穿衣：{dress}\n"
+            weather_info += "\n"
             weather_info += f"舒适度：{comfort}\n\n"
 
         # 预警信息
