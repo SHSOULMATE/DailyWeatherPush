@@ -183,16 +183,15 @@ def generate_weather_report(location):
         feels_like = round(realtime.get('apparent_temperature', 0))
         wind_speed = realtime.get('wind', {}).get('speed', 0)
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
-        report.append(f"🌡️{location['name']} 实时气候速览")
-        report.append("")
-        report.append(f"   ▸气温：{temp}°C → 体感{feels_like}°C")
-        report.append("")
-        report.append(f"   ▸风力：{get_wind_level(wind_speed)}")
-        report.append("")
-        report.append(f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}")
-        report.append("")
-        report.append(f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}")
-        report.append("")
+        report.extend([
+            f"🌡️{location['name']} 实时气候速览",
+            "",  # 空行
+            f"   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"   ▸风力：{get_wind_level(wind_speed)}",
+            f"   ▸湿度：{get_humidity_desc(humidity)}",
+            f"   ▸降水：{precipitation_info}",
+            ""   # 空行
+        ])
         
         # 重点时段提醒
         hourly_alerts = get_hourly_alerts(hourly_combined)
@@ -212,24 +211,25 @@ def generate_weather_report(location):
             temp_max = round(daily['temperature'][i]['max'])
             prob_rain = daily['precipitation'][i]['probability']
             desc = daily['precipitation'][i].get('description', '无有效降水')
-            report.append(
-                f"[{date_str}] {skycon}\n",
-                f"\n",
-                f"  ▸ 气温：{temp_min}~{temp_max}°C\n",
-                f"\n",
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n",
-                f"\n",
-                f"  ▸ 降水概率{prob_rain}%\n",
-                f"\n"
-            )
+            report.extend([
+                f"[{date_str}] {skycon}",
+                "",
+                f"  ▸ 气温：{temp_min}~{temp_max}°C",
+                "",
+                f"  ▸ 湿度：{get_humidity_desc(humidity_avg)}",
+                "",
+                f"  ▸ 降水概率{prob_rain}%",
+                ""  # 每个预报项后加空行
+            ])
 
         # 每日一句和彩虹屁
         report.extend([
-            "\n📜 每日一句\n",
-            "\n",
+            "📜 每日一句",
+            "",  # 空行
             get_quote(),
-            "\n\n🌈 彩虹屁\n",
-            "\n",
+            "",  # 空行
+            "🌈 彩虹屁",
+            "",  # 空行
             get_chp()
         ])
 
