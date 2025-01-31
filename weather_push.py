@@ -200,7 +200,9 @@ def generate_weather_report(location):
         hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
             report.append("\n⏰ 重点时段提醒\n")
+            report.append("")
             report.extend(hourly_alerts)
+            report.append("")
 
         # 三日预报
         report.append("\n📅 三日天气走势\n")
@@ -213,14 +215,14 @@ def generate_weather_report(location):
             prob_rain = daily['precipitation'][i]['probability']
             desc = daily['precipitation'][i].get('description', '无有效降水')
             report.append(
-                f"[{date_str}] {skycon}\n"
-                f""
-                f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
-                f""
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
-                f""
-                f"  ▸ 降水概率{prob_rain}%\n"
-                f""
+                f"[{date_str}] {skycon}\n",
+                f"\n",
+                f"  ▸ 气温：{temp_min}~{temp_max}°C\n",
+                f"\n",
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n",
+                f"\n",
+                f"  ▸ 降水概率{prob_rain}%\n",
+                f"\n"
             )
 
         # 每日一句和彩虹屁
