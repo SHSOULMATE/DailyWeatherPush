@@ -7,8 +7,8 @@ from urllib.parse import quote
 # 环境变量配置
 PUSHDEER_KEY = os.getenv('PUSHDEER_KEY', '')
 CAIYUN_API_KEY = os.getenv('CAIYUN_API_KEY', '')
-QUOTE_API_KEY = os.getenv('QUOTE_API_KEY', 'https://v1.hitokoto.cn/')
-CHP_API_KEY = os.getenv('CHP_API_KEY', 'https://chp.shadiao.app/api.php')
+QUOTE_API_KEY = os.getenv('QUOTE_API_KEY', '')
+CHP_API_KEY = os.getenv('CHP_API_KEY', '')
 
 def push_message(message):
     """安全推送消息"""
