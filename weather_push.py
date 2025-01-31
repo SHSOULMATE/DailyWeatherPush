@@ -85,6 +85,7 @@ def process_alerts(alerts):
             elif "寒潮" in title:
                 alert_type = "❄️"
             active_alerts.append(f"{alert_type} {title}：{description}")
+            active_alerts.append("\n")
     return active_alerts
 
 def get_hourly_alerts(hourly_combined):
