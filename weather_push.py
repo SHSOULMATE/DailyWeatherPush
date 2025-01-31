@@ -49,98 +49,19 @@ def translate_skycon(skycon):
     }
     return skycon_map.get(skycon, f"未知天气（{skycon}）")
 
-def get_wind_level(speed):
-    """完整风速等级转换（0-12级+）"""
-    levels = [
-        (0.0, 0.2), (0.3, 1.5), (1.6, 3.3), (3.4, 5.4),
-        (5.5, 7.9), (8.0, 10.7), (10.8, 13.8), (13.9, 17.1),
-        (17.2, 20.7), (20.8, 24.4), (24.5, 28.4), (28.5, 32.6),
-        (32.7, 36.9)
-    ]
-    for level, (min_speed, max_speed) in enumerate(levels):
-        if min_speed <= speed <= max_speed:
-            return f"{level}级"
-    return "12级+" if speed > 36.9 else "0级"
-
-def get_humidity_desc(humidity):
-    """湿度描述"""
-    if humidity < 0.3: return "干燥"
-    elif 0.3 <= humidity < 0.7: return "舒适"
-    else: return "潮湿"
-
-def process_alerts(alerts):
-    """处理预警信息"""
-    if not alerts or not alerts.get('content'):
-        return []
-    
-    active_alerts = []
-    now = datetime.now().timestamp()
-    for alert in alerts.get('content', []):
-        if now < alert.get('end', 0):
-            title = alert.get('title', '气象预警')
-            description = alert.get('description', '')
-            # 提取预警类型图标
-            alert_type = "🌪️"
-            if "暴雨" in title: alert_type = "⛈️"
-            elif "寒潮" in title: alert_type = "❄️"
-            active_alerts.append(f"{alert_type} {title}：{description}")
-    return active_alerts
-
 def get_hourly_alerts(hourly_data):
     """生成重点时段提醒"""
     alerts = []
-    current_alert = None
-    threshold = 10  #10%概率阈值
+    threshold = 30  # 降水概率阈值
 
     for hour in hourly_data[:24]:  # 只处理未来24小时数据
         dt = datetime.fromisoformat(hour['datetime'].replace('+08:00', ''))
-        prob = hour.get('prob', 0)
-        skycon = translate_skycon(hour.get('skycon', {}).get('value', ''))
-
+        prob = hour.get('probability', 0)
+        skycon = translate_skycon(hour.get('value', ''))
         if prob >= threshold:
-            # 合并相邻时段
-            if current_alert and (dt - current_alert['end']).total_seconds() <= 3600:
-                current_alert['end'] = dt
-                current_alert['prob'] = max(current_alert['prob'], prob)
-            else:
-                if current_alert:
-                    alerts.append(current_alert)
-                current_alert = {
-                    'start': dt,
-                    'end': dt,
-                    'skycon': skycon,
-                    'prob': prob
-                }
-    
-    if current_alert:
-        alerts.append(current_alert)
+            alerts.append(f"▫️ {dt.strftime('%H:%M')} {skycon}（降水概率{prob}%）")
 
-    # 格式化输出
-    formatted = []
-    for alert in alerts:
-        start = alert['start'].strftime("%H:%M")
-        end = alert['end'].strftime("%H:%M")
-        formatted.append(f"▫️ {start}-{end}{alert['skycon']}（{alert['prob']}%概率）")
-    
-    return formatted
-
-def get_quote():
-    """获取每日一句"""
-    try:
-        res = requests.get(QUOTE_API_KEY, timeout=3)
-        data = res.json()
-        return f"{data['hitokoto']}\n—— {data.get('from', '未知')}"
-    except Exception:
-        return "每日一句接口异常"
-
-def get_chp():
-    """获取彩虹屁"""
-    try:
-        res = requests.get(CHP_API_KEY, timeout=3)
-        return res.json()['data']['text']
-    except Exception:
-        return "彩虹屁接口异常"
-
+    return alerts
 
 def generate_weather_report(location):
     """生成天气报告"""
@@ -159,18 +80,8 @@ def generate_weather_report(location):
         daily = result.get('daily', {})
         hourly = result.get('hourly', {})
 
-        # 预警信息
-        alerts = process_alerts(result.get('alert'))
-
         # 构建报告
         report = []
-        
-        # 预警板块
-        if alerts:
-            report.append("⚠️ 天气预警")
-            report.append("")
-            report.extend(alerts)
-            report.append("")  # 空行
 
         # 实时天气
         temp = round(realtime.get('temperature', 0))
@@ -192,7 +103,7 @@ def generate_weather_report(location):
         ])
 
         # 重点时段提醒
-        hourly_alerts = get_hourly_alerts(hourly.get('skycon', []))
+        hourly_alerts = get_hourly_alerts(hourly.get('precipitation', []))
         if hourly_alerts:
             report.append("⏰ 重点时段提醒")
             report.append("")
@@ -208,7 +119,7 @@ def generate_weather_report(location):
             temp_min = round(daily['temperature'][i]['min'])
             temp_max = round(daily['temperature'][i]['max'])
             prob_rain = daily['precipitation'][i]['probability']
-            desc = daily['precipitation'][i].get('description')
+            desc = f"{prob_rain}%降水概率"
             
             report.append(
                 f"[{date_str}] {skycon}\n"
@@ -217,7 +128,7 @@ def generate_weather_report(location):
                 f"\n"
                 f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
                 f"\n"
-                f"  ▸ 降水概率{prob_rain}%"
+                f"  ▸ {desc}"
                 f"\n"
             )
         report.append("")
@@ -239,24 +150,6 @@ def generate_weather_report(location):
         return f"🌐 {location['name']}网络请求异常：{str(e)}"
     except Exception as e:
         return f"❌ {location['name']}数据处理失败：{str(e)}"
-
-def format_date(date_str):
-    """格式化日期为 MM-DD 周x"""
-    try:
-        dt = datetime.fromisoformat(date_str.replace('+08:00', ''))
-        weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
-        return f"{dt.month:02d}-{dt.day:02d} {weekdays[dt.weekday()]}"
-    except:
-        return date_str.split('T')[0][5:]
-
-def get_locations():
-    """获取地区配置"""
-    try:
-        locations = json.loads(os.getenv('WEATHER_LOCATIONS', '[]'))
-        return [loc for loc in locations if 'name' in loc and 'coords' in loc]
-    except Exception as e:
-        push_message(f"❌ 配置解析失败：{str(e)}")
-        return []
 
 if __name__ == "__main__":
     locations = get_locations()
