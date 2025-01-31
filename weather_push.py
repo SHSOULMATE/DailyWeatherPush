@@ -174,8 +174,9 @@ def generate_weather_report(location):
         alerts = process_alerts(result.get('alert'))
         if alerts:
             report.append("⚠️ 天气预警\n")
+            report.append("")
             report.extend(alerts)
-            report.append("\n")
+            report.append("")
 
         # 实时天气
         temp = round(realtime.get('temperature', 0))
@@ -184,20 +185,28 @@ def generate_weather_report(location):
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
+            "",
             f"\n   ▸气温：{temp}°C → 体感{feels_like}°C",
+            "",
             f"\n   ▸风力：{get_wind_level(wind_speed)}",
+            "",
             f"\n   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
-            f"\n   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n"
+            "",
+            f"\n   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
+            ""
         ])
 
         # 重点时段提醒
         hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
             report.append("\n⏰ 重点时段提醒\n")
+            report.append("")
             report.extend(hourly_alerts)
+            report.append("")
 
         # 三日预报
         report.append("\n📅 三日天气走势\n")
+        report.append("")
         for i in range(3):
             date_str = format_date(daily['skycon'][i]['date'])
             skycon = translate_skycon(daily['skycon'][i]['value'])
@@ -207,16 +216,22 @@ def generate_weather_report(location):
             desc = daily['precipitation'][i].get('description', '无有效降水')
             report.append(
                 f"[{date_str}] {skycon}\n"
+                ""
                 f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
+                ""
                 f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
+                ""
                 f"  ▸ 降水概率{prob_rain}%\n"
+                ""
             )
 
         # 每日一句和彩虹屁
         report.extend([
             "\n📜 每日一句\n",
+            "",
             get_quote(),
             "\n\n🌈 彩虹屁\n",
+            "",
             get_chp()
         ])
 
