@@ -173,7 +173,7 @@ def generate_weather_report(location):
         report = []
         alerts = process_alerts(result.get('alert'))
         if alerts:
-            report.append("⚠️ 天气预警\n")
+            report.append("⚠️ 天气预警")
             report.append("")
             report.extend(alerts)
             report.append("")
@@ -186,26 +186,26 @@ def generate_weather_report(location):
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
             "",
-            f"\n   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"  ▸气温：{temp}°C → 体感{feels_like}°C",
             "",
-            f"\n   ▸风力：{get_wind_level(wind_speed)}",
+            f"  ▸风力：{get_wind_level(wind_speed)}",
             "",
-            f"\n   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
+            f"  ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
             "",
-            f"\n   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
+            f"  ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
             ""
         ])
 
         # 重点时段提醒
         hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
-            report.append("\n⏰ 重点时段提醒\n")
+            report.append("⏰ 重点时段提醒")
             report.append("")
             report.extend(hourly_alerts)
             report.append("")
 
         # 三日预报
-        report.append("\n📅 三日天气走势\n")
+        report.append("📅 三日天气走势")
         report.append("")
         for i in range(3):
             date_str = format_date(daily['skycon'][i]['date'])
@@ -215,22 +215,22 @@ def generate_weather_report(location):
             prob_rain = daily['precipitation'][i]['probability']
             desc = daily['precipitation'][i].get('description', '无有效降水')
             report.append(
-                f"[{date_str}] {skycon}\n"
-                "\n"
-                f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
-                "\n"
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
-                "\n"
-                f"  ▸ 降水概率{prob_rain}%\n"
-                "\n"
+                f"[{date_str}] {skycon}",
+                "",
+                f"  ▸ 气温：{temp_min}~{temp_max}°C",
+                "",
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}",
+                "",
+                f"  ▸ 降水概率{prob_rain}%",
+                ""
             )
 
         # 每日一句和彩虹屁
         report.extend([
-            "\n📜 每日一句\n",
+            "📜 每日一句",
             "",
             get_quote(),
-            "\n\n🌈 彩虹屁\n",
+            "🌈 彩虹屁",
             "",
             get_chp()
         ])
