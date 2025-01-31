@@ -120,6 +120,7 @@ def get_hourly_alerts(hourly_combined):
         start = alert['start'].strftime("%H:%M")
         end = alert['end'].strftime("%H:%M")
         formatted.append(f"▫️ {start}-{end} {alert['skycon']}（{alert['prob']}%概率）")
+        formatted.append("\n")
     return formatted
 
 def get_quote():
@@ -230,6 +231,7 @@ def generate_weather_report(location):
             "📜 每日一句",
             "\n",
             get_quote(),
+            "\n",
             "🌈 彩虹屁",
             "\n",
             get_chp()
