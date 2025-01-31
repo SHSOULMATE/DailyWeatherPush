@@ -11,14 +11,10 @@ QUOTE_API_KEY = os.getenv('QUOTE_API_KEY', '')
 CHP_API_KEY = os.getenv('CHP_API_KEY', '')
 
 def push_message(message):
-    """安全推送消息（强制换行版）"""
+    """安全推送消息"""
     if not PUSHDEER_KEY:
         print("未配置PUSHDEER_KEY")
         return
-    
-    # 显式添加双换行符
-    formatted_msg = message.replace('\n', '\n\n')
-
     for key in PUSHDEER_KEY.split(','):
         key = key.strip()
         if not key:
@@ -177,40 +173,70 @@ def generate_weather_report(location):
         report = []
         alerts = process_alerts(result.get('alert'))
         if alerts:
-            report.append("⚠️ 天气预警\n")
-            for alert in alerts:
-                report.append(f"{alert}\n")  # 每条预警后换行
-            report.append("\n")  # 板块结束空行
+            report.append("⚠️ 天气预警")
+            report.append("")
+            report.extend(alerts)
+            report.append("")
 
-        # 实时天气（每个属性独立行）
-        report.append("🌡️{} 实时气候速览\n".format(location['name']))
-        report.append("   ▸气温：{}°C → 体感{}°C\n".format(temp, feels_like))
-        report.append("   ▸风力：{}\n".format(get_wind_level(wind_speed)))
-        report.append("   ▸湿度：{}\n".format(get_humidity_desc(humidity)))
-        report.append("   ▸降水：{}\n\n".format(precipitation_info))
+        # 实时天气
+        temp = round(realtime.get('temperature', 0))
+        feels_like = round(realtime.get('apparent_temperature', 0))
+        wind_speed = realtime.get('wind', {}).get('speed', 0)
+        precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
+        report.extend([
+            f"🌡️{location['name']} 实时气候速览",
+            "",
+            f"  ▸气温：{temp}°C → 体感{feels_like}°C",
+            "",
+            f"  ▸风力：{get_wind_level(wind_speed)}",
+            "",
+            f"  ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
+            "",
+            f"  ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
+            ""
+        ])
 
-        # 重点时段提醒（每时段独立行）
+        # 重点时段提醒
+        hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
-            report.append("⏰ 重点时段提醒\n")
-            for alert in hourly_alerts:
-                report.append(f"{alert}\n")
-            report.append("\n")
+            report.append("⏰ 重点时段提醒")
+            report.append("")
+            report.extend(hourly_alerts)
+            report.append("")
 
-        # 三日预报（每天独立区块）
-        report.append("📅 三日天气走势\n\n")  # 标题后双换行
+        # 三日预报
+        report.append("📅 三日天气走势")
+        report.append("")
         for i in range(3):
-            report.append("[{}] {}\n".format(date_str, skycon))
-            report.append("  ▸ 气温：{}~{}°C\n".format(temp_min, temp_max))
-            report.append("  ▸ 湿度：{}\n".format(humidity_desc))
-            report.append("  ▸ 降水概率{}%\n\n".format(prob_rain))
+            date_str = format_date(daily['skycon'][i]['date'])
+            skycon = translate_skycon(daily['skycon'][i]['value'])
+            temp_min = round(daily['temperature'][i]['min'])
+            temp_max = round(daily['temperature'][i]['max'])
+            prob_rain = daily['precipitation'][i]['probability']
+            desc = daily['precipitation'][i].get('description', '无有效降水')
+            report.append(
+                f"[{date_str}] {skycon}"
+                ""
+                f"  ▸ 气温：{temp_min}~{temp_max}°C"
+                ""
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}"
+                ""
+                f"  ▸ 降水概率{prob_rain}%"
+                ""
+            )
 
         # 每日一句和彩虹屁
-        report.append("📜 每日一句\n\n")
-        report.append(f"{get_quote()}\n\n")
-        report.append("🌈 彩虹屁\n\n")
-        report.append(f"{get_chp()}\n")
+        report.extend([
+            "📜 每日一句",
+            "",
+            get_quote(),
+            "🌈 彩虹屁",
+            "",
+            get_chp()
+        ])
 
-        return ''.join(report)  # 直接拼接所有带换行符的内容
+        return "\n".join(report).replace('\n\n', '\n')
+
     except requests.exceptions.RequestException as e:
         return f"🌐 {location['name']}网络请求异常：{str(e)}"
     except Exception as e:
