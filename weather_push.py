@@ -226,10 +226,10 @@ def generate_weather_report(location):
         # 每日一句和彩虹屁
         report.extend([
             "\n📜 每日一句\n",
-            "\n"
+            "\n",
             get_quote(),
             "\n\n🌈 彩虹屁\n",
-            "\n"
+            "\n",
             get_chp()
         ])
 
