@@ -190,7 +190,7 @@ def generate_weather_report(location):
             "\n",
             f"  ▸风力：{get_wind_level(wind_speed)}",
             "\n\n",
-            f"  ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))\n}",
+            f"  ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}\n",
             
             f"  ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
             ""
