@@ -174,9 +174,9 @@ def generate_weather_report(location):
         alerts = process_alerts(result.get('alert'))
         if alerts:
             report.append("⚠️ 天气预警")
-            report.append("")
+            report.append("\n")
             report.extend(alerts)
-            report.append("")
+            report.append("\n")
 
         # 实时天气
         temp = round(realtime.get('temperature', 0))
@@ -214,16 +214,16 @@ def generate_weather_report(location):
             temp_max = round(daily['temperature'][i]['max'])
             prob_rain = daily['precipitation'][i]['probability']
             desc = daily['precipitation'][i].get('description', '无有效降水')
-            report.append(
-                f"[{date_str}] {skycon}"
+            report.extend([
+                f"[{date_str}] {skycon}",
+                "\n",
+                f"  ▸ 气温：{temp_min}~{temp_max}°C",
+                "\n",
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}",
+                "\n",
+                f"  ▸ 降水概率{prob_rain}%",
                 "\n"
-                f"  ▸ 气温：{temp_min}~{temp_max}°C"
-                "\n"
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}"
-                "\n"
-                f"  ▸ 降水概率{prob_rain}%"
-                "\n"
-            )
+            ])
 
         # 每日一句和彩虹屁
         report.extend([
