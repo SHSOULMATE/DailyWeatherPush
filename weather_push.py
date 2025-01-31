@@ -185,13 +185,13 @@ def generate_weather_report(location):
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
-            f"\n",
+            f"\n"
             f"\n   ▸气温：{temp}°C → 体感{feels_like}°C",
-            f"\n",
+            f"\n"
             f"\n   ▸风力：{get_wind_level(wind_speed)}",
-            f"\n",
+            f"\n"
             f"\n   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
-            f"\n",
+            f"\n"
             f"\n   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n"
             f"\n"
         ])
