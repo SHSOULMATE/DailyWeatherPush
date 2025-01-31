@@ -125,31 +125,22 @@ def get_hourly_alerts(hourly_data):
     return formatted
 
 def get_quote():
-    """获取每日一句（带详细错误处理）"""
+    """获取每日一句"""
     try:
         res = requests.get(QUOTE_API_KEY, timeout=3)
         data = res.json()
-        author = data.get('from', '未知')
-        # 处理不同API返回格式
-        if 'hitokoto' in data:
-            return f"{data['hitokoto']}\n—— {author}"
-        elif 'content' in data:
-            return f"{data['content']}\n—— {author}"
-        return "每日一句接口异常，请稍后再试"
-    except Exception as e:
-        print(f"每日一句API异常：{str(e)}")
-        return "每日一句接口异常，请稍后再试"
+        return f"{data['hitokoto']}\n—— {data.get('from', '未知')}"
+    except Exception:
+        return "每日一句接口异常"
 
 def get_chp():
-    """获取彩虹屁（带重试机制）"""
+    """获取彩虹屁"""
     try:
         res = requests.get(CHP_API_KEY, timeout=3)
-        if res.status_code == 200:
-            return res.text.strip()
-        return "彩虹屁接口暂时不可用"
-    except Exception as e:
-        print(f"彩虹屁API异常：{str(e)}")
-        return "彩虹屁接口暂时不可用"
+        return res.json()['data']['text']
+    except Exception:
+        return "彩虹屁接口异常"
+
 
 def generate_weather_report(location):
     """生成天气报告"""
