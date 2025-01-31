@@ -186,26 +186,26 @@ def generate_weather_report(location):
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
             f"\n"
-            f"\n   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"   ▸气温：{temp}°C → 体感{feels_like}°C",
             f"\n"
-            f"\n   ▸风力：{get_wind_level(wind_speed)}",
+            f"   ▸风力：{get_wind_level(wind_speed)}",
             f"\n"
-            f"\n   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
+            f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
             f"\n"
-            f"\n   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n"
+            f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n"
             f"\n"
         ])
 
         # 重点时段提醒
         hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
-            report.append("\n⏰ 重点时段提醒\n")
+            report.append("⏰ 重点时段提醒")
             report.append("")
             report.extend(hourly_alerts)
             report.append("")
 
         # 三日预报
-        report.append("\n📅 三日天气走势\n")
+        report.append("\n📅 三日天气走势”)
         report.append("")
         for i in range(3):
             date_str = format_date(daily['skycon'][i]['date'])
