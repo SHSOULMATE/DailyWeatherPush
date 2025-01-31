@@ -90,7 +90,7 @@ def get_hourly_alerts(hourly_data):
     """生成重点时段提醒"""
     alerts = []
     current_alert = None
-    threshold = 30  # 30%概率阈值
+    threshold = 10  #10%概率阈值
 
     for hour in hourly_data[:24]:  # 只处理未来24小时数据
         dt = datetime.fromisoformat(hour['datetime'].replace('+08:00', ''))
@@ -208,7 +208,7 @@ def generate_weather_report(location):
             temp_min = round(daily['temperature'][i]['min'])
             temp_max = round(daily['temperature'][i]['max'])
             prob_rain = daily['precipitation'][i]['probability']
-            desc = daily['precipitation'][i].get('description', '无有效降水')
+            desc = daily['precipitation'][i].get('description')
             
             report.append(
                 f"[{date_str}] {skycon}\n"
