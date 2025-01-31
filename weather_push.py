@@ -215,13 +215,13 @@ def generate_weather_report(location):
             prob_rain = daily['precipitation'][i]['probability']
             desc = daily['precipitation'][i].get('description', '无有效降水')
             report.append(
-                f"[{date_str}] {skycon}",
-                "",
-                f"  ▸ 气温：{temp_min}~{temp_max}°C",
-                "",
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}",
-                "",
-                f"  ▸ 降水概率{prob_rain}%",
+                f"[{date_str}] {skycon}"
+                ""
+                f"  ▸ 气温：{temp_min}~{temp_max}°C"
+                ""
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}"
+                ""
+                f"  ▸ 降水概率{prob_rain}%"
                 ""
             )
 
