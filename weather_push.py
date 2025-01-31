@@ -177,6 +177,7 @@ def generate_weather_report(location):
         # 预警板块
         if alerts:
             report.append("⚠️ 天气预警")
+            report.append("")
             report.extend(alerts)
             report.append("")  # 空行
 
@@ -188,10 +189,15 @@ def generate_weather_report(location):
         
         report.extend([
             "🌡️ 实时气候速览",
+            f"\n"
             f"   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"\n"
             f"   ▸风力：{get_wind_level(wind_speed)}",
+            f"\n"
             f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
+            f"\n"
             f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}",
+            f"\n"
             ""
         ])
 
@@ -199,6 +205,7 @@ def generate_weather_report(location):
         hourly_alerts = get_hourly_alerts(hourly.get('skycon', []))
         if hourly_alerts:
             report.append("⏰ 重点时段提醒")
+            report.append("")
             report.extend(hourly_alerts)
             report.append("")
 
@@ -214,17 +221,23 @@ def generate_weather_report(location):
             
             report.append(
                 f"[{date_str}] {skycon}\n"
+                f"\n"
                 f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
+                 f"\n"
                 f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
+                 f"\n"
                 f"  ▸ 降水概率{prob_rain}%（{desc}）"
+                 f"\n"
             )
         report.append("")
 
         # 每日一句和彩虹屁
         report.extend([
             "📜 每日一句",
+            "\n",
             get_quote(),
             "\n🌈 彩虹屁",
+            "\n",
             get_chp()
         ])
 
