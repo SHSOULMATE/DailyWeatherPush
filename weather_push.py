@@ -1,7 +1,7 @@
 import requests
 import os
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import quote
 
 # 环境变量配置
@@ -11,19 +11,24 @@ QUOTE_API_KEY = os.getenv('QUOTE_API_KEY', '')
 CHP_API_KEY = os.getenv('CHP_API_KEY', '')
 
 def push_message(message):
-    """安全推送消息"""
+    """安全推送消息（换行修复版）"""
     if not PUSHDEER_KEY:
         print("未配置PUSHDEER_KEY")
         return
+    
+    # 换行符编码处理
+    encoded_msg = message.replace('\n', '%0A')
+    
     for key in PUSHDEER_KEY.split(','):
         key = key.strip()
         if not key:
             continue
+        
         try:
             push_url = "https://api2.pushdeer.com/message/push"
             params = {
                 'pushkey': key,
-                'text': message[:500]  # 限制消息长度
+                'text': encoded_msg[:500]  # 应用编码后的消息
             }
             response = requests.get(push_url, params=params, timeout=10)
             response.raise_for_status()
@@ -32,7 +37,7 @@ def push_message(message):
             print(f"推送失败到 {key[:3]}...：{str(e)}")
 
 def translate_skycon(skycon):
-    """天气现象翻译（含新发现的天气类型）"""
+    """天气现象翻译（保持原有符号）"""
     skycon_map = {
         "CLEAR_DAY": "☀️晴", "CLEAR_NIGHT": "🌙晴夜",
         "PARTLY_CLOUDY_DAY": "⛅多云", "PARTLY_CLOUDY_NIGHT": "☁️多云夜",
@@ -48,7 +53,7 @@ def translate_skycon(skycon):
     return skycon_map.get(skycon, f"未知天气（{skycon}）")
 
 def get_wind_level(speed):
-    """完整风速等级转换（0-12级+）"""
+    """风速等级转换"""
     levels = [
         (0.0, 0.2), (0.3, 1.5), (1.6, 3.3), (3.4, 5.4),
         (5.5, 7.9), (8.0, 10.7), (10.8, 13.8), (13.9, 17.1),
@@ -62,17 +67,15 @@ def get_wind_level(speed):
 
 def get_humidity_desc(humidity):
     """湿度描述"""
-    if humidity < 0.3:
-        return "干燥"
-    elif 0.3 <= humidity < 0.7:
-        return "舒适"
-    else:
-        return "潮湿"
+    if humidity < 0.3: return "干燥"
+    elif 0.3 <= humidity < 0.7: return "舒适"
+    else: return "潮湿"
 
 def process_alerts(alerts):
     """处理预警信息"""
     if not alerts or not alerts.get('content'):
         return []
+    
     active_alerts = []
     now = datetime.now().timestamp()
     for alert in alerts.get('content', []):
@@ -80,23 +83,21 @@ def process_alerts(alerts):
             title = alert.get('title', '气象预警')
             description = alert.get('description', '')
             alert_type = "🌪️"
-            if "暴雨" in title:
-                alert_type = "⛈️"
-            elif "寒潮" in title:
-                alert_type = "❄️"
+            if "暴雨" in title: alert_type = "⛈️"
+            elif "寒潮" in title: alert_type = "❄️"
             active_alerts.append(f"{alert_type} {title}：{description}")
     return active_alerts
 
 def get_hourly_alerts(hourly_combined):
-    """生成重点时段提醒（处理合并后的数据）"""
+    """生成重点时段提醒"""
     alerts = []
     current_alert = None
     threshold = 30  # 30%概率阈值
 
-    for hour in hourly_combined[:24]:  # 处理未来24小时数据
+    for hour in hourly_combined[:24]:
         dt = datetime.fromisoformat(hour['datetime'].replace('+08:00', ''))
         prob = hour.get('prob', 0)
-        skycon = translate_skycon(hour.get('skycon_value', ''))
+        skycon = hour.get('skycon_value', '')
 
         if prob >= threshold:
             if current_alert and (dt - current_alert['end']).total_seconds() <= 3600:
@@ -108,7 +109,7 @@ def get_hourly_alerts(hourly_combined):
                 current_alert = {
                     'start': dt,
                     'end': dt,
-                    'skycon': skycon,
+                    'skycon': translate_skycon(skycon),
                     'prob': prob
                 }
 
@@ -140,9 +141,9 @@ def get_chp():
         return "彩虹屁接口异常"
 
 def generate_weather_report(location):
-    """生成天气报告"""
+    """生成天气报告（优化换行结构）"""
     try:
-        # 修正API URL
+        # 获取天气数据
         api_url = f"https://api.caiyunapp.com/v2.6/{CAIYUN_API_KEY}/{location['coords']}/weather.json"
         response = requests.get(api_url, timeout=15)
         response.raise_for_status()
@@ -156,43 +157,45 @@ def generate_weather_report(location):
         daily = result.get('daily', {})
         hourly = result.get('hourly', {})
 
-        # 合并降水概率和天气现象数据
+        # 合并小时数据
+        hourly_combined = []
         precipitations = hourly.get('precipitation', [])
         skycons = hourly.get('skycon', [])
-        hourly_combined = []
         for i in range(len(precipitations)):
             precip = precipitations[i]
             skycon = skycons[i] if i < len(skycons) else {}
             hourly_combined.append({
                 'datetime': precip['datetime'],
-                'prob': precip.get('probability', 0),  # 确保字段名为probability
+                'prob': precip.get('probability', 0),
                 'skycon_value': skycon.get('value', '')
             })
 
         # 构建报告
         report = []
+        
+        # 预警信息
         alerts = process_alerts(result.get('alert'))
         if alerts:
             report.append("⚠️ 天气预警")
-            report.append("")
+            report.append("")  # 空行
             report.extend(alerts)
-            report.append("")
+            report.append("")  # 空行
 
         # 实时天气
         temp = round(realtime.get('temperature', 0))
         feels_like = round(realtime.get('apparent_temperature', 0))
         wind_speed = realtime.get('wind', {}).get('speed', 0)
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
+        humidity = realtime.get('humidity', 0)
+        precipitation_info = '无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'
+
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
             "",
-            f"  ▸气温：{temp}°C → 体感{feels_like}°C",
-            "",
-            f"  ▸风力：{get_wind_level(wind_speed)}",
-            "",
-            f"  ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
-            "",
-            f"  ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n",
+            f"   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"   ▸风力：{get_wind_level(wind_speed)}",
+            f"   ▸湿度：{get_humidity_desc(humidity)}",
+            f"   ▸降水：{precipitation_info}",
             ""
         ])
 
@@ -213,29 +216,28 @@ def generate_weather_report(location):
             temp_min = round(daily['temperature'][i]['min'])
             temp_max = round(daily['temperature'][i]['max'])
             prob_rain = daily['precipitation'][i]['probability']
-            desc = daily['precipitation'][i].get('description', '无有效降水')
-            report.append(
-                f"[{date_str}] {skycon}"
+            humidity_avg = daily['humidity'][i]['avg']
+
+            report.extend([
+                f"[{date_str}] {skycon}",
+                f"  ▸ 气温：{temp_min}~{temp_max}°C",
+                f"  ▸ 湿度：{get_humidity_desc(humidity_avg)}",
+                f"  ▸ 降水概率{prob_rain}%",
                 ""
-                f"  ▸ 气温：{temp_min}~{temp_max}°C"
-                ""
-                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}"
-                ""
-                f"  ▸ 降水概率{prob_rain}%"
-                ""
-            )
+            ])
 
         # 每日一句和彩虹屁
         report.extend([
             "📜 每日一句",
             "",
             get_quote(),
+            "",
             "🌈 彩虹屁",
             "",
             get_chp()
         ])
 
-        return "\n".join(report).replace('\n\n', '\n')
+        return '\n'.join(report)
 
     except requests.exceptions.RequestException as e:
         return f"🌐 {location['name']}网络请求异常：{str(e)}"
@@ -243,7 +245,7 @@ def generate_weather_report(location):
         return f"❌ {location['name']}数据处理失败：{str(e)}"
 
 def format_date(date_str):
-    """格式化日期为 MM-DD 周x"""
+    """格式化日期"""
     try:
         dt = datetime.fromisoformat(date_str.replace('+08:00', ''))
         weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
