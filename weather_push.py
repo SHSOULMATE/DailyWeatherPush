@@ -217,7 +217,7 @@ def generate_weather_report(location):
                 f"\n"
                 f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
                 f"\n"
-                f"  ▸ 降水概率{prob_rain}%（{desc}）"
+                f"  ▸ 降水概率{prob_rain}%"
                 f"\n"
             )
         report.append("")
