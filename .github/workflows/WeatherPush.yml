@@ -30,6 +30,8 @@ jobs:
         env:
           CAIYUN_API_KEY: ${{ secrets.CAIYUN_API_KEY }}
           PUSHDEER_KEY: ${{ secrets.PUSHDEER_KEY }}
+          QUOTE_API: ${{ secrets.QUOTE_API }}
+          CHP_API: ${{ secrets.CHP_API }}
           WEATHER_LOCATIONS: ${{ secrets.WEATHER_LOCATIONS }}
         run: |
           python weather_push.py
