@@ -205,7 +205,7 @@ def generate_weather_report(location):
             report.append("")
 
         # 三日预报
-        report.append("\n📅 三日天气走势”)
+        report.append("\n📅 三日天气走势")
         report.append("")
         for i in range(3):
             date_str = format_date(daily['skycon'][i]['date'])
