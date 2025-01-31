@@ -198,8 +198,6 @@ def generate_weather_report(location):
             f"\n"
             f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}",
             f"\n"
-            ""
-            f"\n"
         ])
 
         # 重点时段提醒
@@ -230,8 +228,6 @@ def generate_weather_report(location):
                 f"\n"
                 f"  ▸ 降水概率{prob_rain}%（{desc}）"
                 f"\n"
-                ""
-                f"\n"
             )
         report.append("")
 
@@ -240,8 +236,8 @@ def generate_weather_report(location):
             "📜 每日一句",
             "\n",
             get_quote(),
-            "",
-            "\n🌈 彩虹屁",
+            "\n",
+            "🌈 彩虹屁",
             "\n",
             get_chp()
         ])
