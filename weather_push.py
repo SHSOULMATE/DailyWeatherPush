@@ -151,6 +151,41 @@ def generate_weather_report(location):
     except Exception as e:
         return f"❌ {location['name']}数据处理失败：{str(e)}"
 
+def get_locations():
+    """获取地区配置"""
+    try:
+        locations = json.loads(os.getenv('WEATHER_LOCATIONS', '[]'))
+        return [loc for loc in locations if 'name' in loc and 'coords' in loc]
+    except Exception as e:
+        push_message(f"❌ 配置解析失败：{str(e)}")
+        return []
+
+def format_date(date_str):
+    """格式化日期为 MM-DD 周x"""
+    try:
+        dt = datetime.fromisoformat(date_str.replace('+08:00', ''))
+        weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+        return f"{dt.month:02d}-{dt.day:02d} {weekdays[dt.weekday()]}"
+    except:
+        return date_str.split('T')[0][5:]
+
+def get_quote():
+    """获取每日一句"""
+    try:
+        res = requests.get(QUOTE_API_KEY, timeout=3)
+        data = res.json()
+        return f"{data['hitokoto']}\n—— {data.get('from', '未知')}"
+    except Exception:
+        return "每日一句接口异常"
+
+def get_chp():
+    """获取彩虹屁"""
+    try:
+        res = requests.get(CHP_API_KEY, timeout=3)
+        return res.json()['data']['text']
+    except Exception:
+        return "彩虹屁接口异常"
+
 if __name__ == "__main__":
     locations = get_locations()
     if not locations:
