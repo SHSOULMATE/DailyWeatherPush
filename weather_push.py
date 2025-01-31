@@ -183,19 +183,17 @@ def generate_weather_report(location):
         feels_like = round(realtime.get('apparent_temperature', 0))
         wind_speed = realtime.get('wind', {}).get('speed', 0)
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
-        report.extend([
-            f"🌡️{location['name']} 实时气候速览",
-            f"\n"
-            f"   ▸气温：{temp}°C → 体感{feels_like}°C",
-            f"\n"
-            f"   ▸风力：{get_wind_level(wind_speed)}",
-            f"\n"
-            f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
-            f"\n"
-            f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}\n"
-            f"\n"
-        ])
-
+        report.append(f"🌡️{location['name']} 实时气候速览")
+        report.append("")
+        report.append(f"   ▸气温：{temp}°C → 体感{feels_like}°C")
+        report.append("")
+        report.append(f"   ▸风力：{get_wind_level(wind_speed)}")
+        report.append("")
+        report.append(f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}")
+        report.append("")
+        report.append(f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}")
+        report.append("")
+        
         # 重点时段提醒
         hourly_alerts = get_hourly_alerts(hourly_combined)
         if hourly_alerts:
