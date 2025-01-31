@@ -1,30 +1,34 @@
 import requests
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from urllib.parse import quote
 
 def push_message(message):
-    """推送到多个设备"""
-    keys = os.getenv('PUSHDEER_KEY', '').split(',')
-    if not keys:
+    """安全推送消息"""
+    if not PUSHDEER_KEY:
         print("未配置PUSHDEER_KEY")
         return
 
-    for key in keys:
+    for key in PUSHDEER_KEY.split(','):
         key = key.strip()
         if not key:
             continue
-            
+
         try:
-            push_url = f"https://api2.pushdeer.com/message/push?pushkey={key}&text={message}"
-            response = requests.get(push_url, timeout=5)
+            push_url = "https://api2.pushdeer.com/message/push"
+            params = {
+                'pushkey': key,
+                'text': message[:500]  # 限制消息长度
+            }
+            response = requests.get(push_url, params=params, timeout=10)
             response.raise_for_status()
-            print(f"推送到 {key[:3]}... 成功")
+            print(f"推送成功到 {key[:3]}...")
         except Exception as e:
-            print(f"推送到 {key[:3]}... 失败：{str(e)}")
+            print(f"推送失败到 {key[:3]}...：{str(e)}")
 
 def translate_skycon(skycon):
-    """天气现象中英对照（含Emoji）"""
+    """天气现象翻译（含新发现的天气类型）"""
     skycon_map = {
         "CLEAR_DAY": "☀️晴", "CLEAR_NIGHT": "🌙晴夜",
         "PARTLY_CLOUDY_DAY": "⛅多云", "PARTLY_CLOUDY_NIGHT": "☁️多云夜",
@@ -37,105 +41,219 @@ def translate_skycon(skycon):
         "MODERATE_HAZE": "😷中霾", "HEAVY_HAZE": "😷重霾",
         "WIND": "🌪️大风", "DUST": "💨浮尘", "SAND": "💨沙尘"
     }
-    return skycon_map.get(skycon, skycon)
+    return skycon_map.get(skycon, f"未知天气（{skycon}）")
 
-def format_date(date_str):
-    """格式化日期字符串"""
-    try:
-        return datetime.fromisoformat(date_str.replace('+08:00', '')).strftime('%Y-%m-%d')
-    except:
-        return date_str.split('T')[0]
+def get_wind_level(speed):
+    """完整风速等级转换（0-12级+）"""
+    levels = [
+        (0.0, 0.2), (0.3, 1.5), (1.6, 3.3), (3.4, 5.4),
+        (5.5, 7.9), (8.0, 10.7), (10.8, 13.8), (13.9, 17.1),
+        (17.2, 20.7), (20.8, 24.4), (24.5, 28.4), (28.5, 32.6),
+        (32.7, 36.9)
+    ]
+    for level, (min_speed, max_speed) in enumerate(levels):
+        if min_speed <= speed <= max_speed:
+            return f"{level}级"
+    return "12级+" if speed > 36.9 else "0级"
 
-def get_locations():
-    """从Secrets获取地区配置"""
-    try:
-        locations_json = os.getenv('WEATHER_LOCATIONS', '[{"name": "上海", "coords": "121.4737,31.2304"}]')
-        return json.loads(locations_json)
-    except Exception as e:
-        push_message(f"❌ 地区配置解析失败：{str(e)}")
+def get_humidity_desc(humidity):
+    """湿度描述"""
+    if humidity < 0.3: return "干燥"
+    elif 0.3 <= humidity < 0.7: return "舒适"
+    else: return "潮湿"
+
+def process_alerts(alerts):
+    """处理预警信息"""
+    if not alerts or not alerts.get('content'):
         return []
-
-def get_weather_info():
-    """主处理函数（修改后）"""
-    locations = get_locations()
     
-    for loc in locations:
-        try:
-            # 为每个地区生成独立报告
-            weather_info = generate_weather_report(loc)
-            if weather_info:
-                push_message(weather_info)
-        except Exception as e:
-            push_message(f"⚠️ {loc.get('name','未知地区')}数据处理失败：{str(e)}")
+    active_alerts = []
+    now = datetime.now().timestamp()
+    for alert in alerts.get('content', []):
+        if now < alert.get('end', 0):
+            title = alert.get('title', '气象预警')
+            description = alert.get('description', '')
+            # 提取预警类型图标
+            alert_type = "🌪️"
+            if "暴雨" in title: alert_type = "⛈️"
+            elif "寒潮" in title: alert_type = "❄️"
+            active_alerts.append(f"{alert_type} {title}：{description}")
+    return active_alerts
+
+def get_hourly_alerts(hourly_data):
+    """生成重点时段提醒"""
+    alerts = []
+    current_alert = None
+    threshold = 30  # 30%概率阈值
+
+    for hour in hourly_data[:24]:  # 只处理未来24小时数据
+        dt = datetime.fromisoformat(hour['datetime'].replace('+08:00', ''))
+        prob = hour.get('prob', 0)
+        skycon = translate_skycon(hour.get('skycon', {}).get('value', ''))
+
+        if prob >= threshold:
+            # 合并相邻时段
+            if current_alert and (dt - current_alert['end']).total_seconds() <= 3600:
+                current_alert['end'] = dt
+                current_alert['prob'] = max(current_alert['prob'], prob)
+            else:
+                if current_alert:
+                    alerts.append(current_alert)
+                current_alert = {
+                    'start': dt,
+                    'end': dt,
+                    'skycon': skycon,
+                    'prob': prob
+                }
+    
+    if current_alert:
+        alerts.append(current_alert)
+
+    # 格式化输出
+    formatted = []
+    for alert in alerts:
+        start = alert['start'].strftime("%H:%M")
+        end = alert['end'].strftime("%H:%M")
+        formatted.append(f"▫️ {start}-{end}{alert['skycon']}（{alert['prob']}%概率）")
+    
+    return formatted
+
+def get_quote():
+    """获取每日一句（带详细错误处理）"""
+    try:
+        res = requests.get(QUOTE_API, timeout=3)
+        data = res.json()
+        author = data.get('from', '未知')
+        # 处理不同API返回格式
+        if 'hitokoto' in data:
+            return f"{data['hitokoto']}\n—— {author}"
+        elif 'content' in data:
+            return f"{data['content']}\n—— {author}"
+        return "每日一句接口异常，请稍后再试"
+    except Exception as e:
+        print(f"每日一句API异常：{str(e)}")
+        return "每日一句接口异常，请稍后再试"
+
+def get_chp():
+    """获取彩虹屁（带重试机制）"""
+    try:
+        res = requests.get(CHP_API, timeout=3)
+        if res.status_code == 200:
+            return res.text.strip()
+        return "彩虹屁接口暂时不可用"
+    except Exception as e:
+        print(f"彩虹屁API异常：{str(e)}")
+        return "彩虹屁接口暂时不可用"
 
 def generate_weather_report(location):
-    """生成单个地区的完整天气报告（原逻辑封装）"""
+    """生成天气报告"""
     try:
-        api_url = f"https://api.caiyunapp.com/v2.6/{os.getenv('CAIYUN_API_KEY')}/{location['coords']}/weather.json"
+        # 获取天气数据
+        api_url = f"https://api.caiyunapp.com/v2.6/{CAIYUN_API_KEY}/{location['coords']}/weather.json"
         response = requests.get(api_url, timeout=15)
         response.raise_for_status()
-        weather_data = response.json()
+        data = response.json()
 
-        if weather_data.get('status') != 'ok':
-            return f"⚠️ {location['name']}天气API状态异常"
+        if data.get('status') != 'ok':
+            return f"⚠️ {location['name']}天气数据获取失败"
 
-        result = weather_data['result']
-        realtime = result['realtime']
-        daily = result['daily']
-
-        # 生成与原始格式完全相同的报告
-        weather_info = f"🌤️ {location['name']}实时天气概况\n"
-        weather_info += "\n"
-        weather_info += f"{translate_skycon(realtime['skycon'])}\n"
-        weather_info += "\n"
-        weather_info += f"温度：{round(realtime['temperature'])}°C（体感{round(realtime['apparent_temperature'])}°C）\n"
-        weather_info += "\n"
-        weather_info += f"风速：{round(realtime['wind']['speed'])}m/s 💨 湿度：{realtime['humidity']*100}%\n"
-        weather_info += "\n"
-        weather_info += f"降水：{realtime['precipitation']['local']['intensity']}mm/h 🌧️ 空气质量：{realtime['air_quality']['aqi']['chn']}（{realtime['air_quality']['description']['chn']}）\n"
-
-        # 三日预报
-        weather_info += "\n📅 三日天气预报\n"
-        weather_info += "\n"
-        for i in range(3):
-            date = format_date(daily['skycon'][i]['date'])
-            skycon = translate_skycon(daily['skycon'][i]['value'])
-            temp = f"{round(daily['temperature'][i]['min'])}~{round(daily['temperature'][i]['max'])}°C"
-            prob_rain = daily['precipitation'][i]['probability']
-            weather_info += f"{date} | {skycon}\n"
-            weather_info += f"气温：{temp} | 降水概率：{prob_rain}%\n\n"
-
-        # 生活指数
-        weather_info += "📊 生活指数参考\n"
-        weather_info += "\n"
-        for i in range(3):
-            date = format_date(daily['life_index']['ultraviolet'][i]['date'])
-            uv = daily['life_index']['ultraviolet'][i]['index']
-            dress = daily['life_index']['dressing'][i]['desc']
-            comfort = daily['life_index']['comfort'][i]['desc']
-            weather_info += f"{date} | 紫外线：{uv}级 | 穿衣：{dress}\n"
-            weather_info += "\n"
-            weather_info += f"舒适度：{comfort}\n\n"
+        result = data['result']
+        realtime = result.get('realtime', {})
+        daily = result.get('daily', {})
+        hourly = result.get('hourly', {})
 
         # 预警信息
-        if 'alert' in result and result['alert']['content']:
-            weather_info += "⚠️ 气象预警\n"
-            weather_info += "\n"
-            weather_info += result['alert']['content'] + "\n"
+        alerts = process_alerts(result.get('alert'))
 
-        # 关键提示
-        weather_info += "\n🔍 天气提示\n"
-        weather_info += "\n"
-        weather_info += result.get('forecast_keypoint', '无特别提示') + "\n"
+        # 构建报告
+        report = []
+        
+        # 预警板块
+        if alerts:
+            report.append("⚠️ 天气预警")
+            report.extend(alerts)
+            report.append("")  # 空行
 
-        return weather_info
+        # 实时天气
+        temp = round(realtime.get('temperature', 0))
+        feels_like = round(realtime.get('apparent_temperature', 0))
+        wind_speed = realtime.get('wind', {}).get('speed', 0)
+        precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
+        
+        report.extend([
+            "🌡️ 实时气候速览",
+            f"   ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"   ▸风力：{get_wind_level(wind_speed)}",
+            f"   ▸湿度：{get_humidity_desc(realtime.get('humidity', 0))}",
+            f"   ▸降水：{'无降水' if precipitation < 0.1 else f'{precipitation:.1f}mm/h'}",
+            ""
+        ])
+
+        # 重点时段提醒
+        hourly_alerts = get_hourly_alerts(hourly.get('skycon', []))
+        if hourly_alerts:
+            report.append("⏰ 重点时段提醒")
+            report.extend(hourly_alerts)
+            report.append("")
+
+        # 三日预报
+        report.append("📅 三日天气走势")
+        for i in range(3):
+            date_str = format_date(daily['skycon'][i]['date'])
+            skycon = translate_skycon(daily['skycon'][i]['value'])
+            temp_min = round(daily['temperature'][i]['min'])
+            temp_max = round(daily['temperature'][i]['max'])
+            prob_rain = daily['precipitation'][i]['probability']
+            desc = daily['precipitation'][i].get('description', '无有效降水')
+            
+            report.append(
+                f"[{date_str}] {skycon}\n"
+                f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
+                f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
+                f"  ▸ 降水概率{prob_rain}%（{desc}）"
+            )
+        report.append("")
+
+        # 每日一句和彩虹屁
+        report.extend([
+            "📜 每日一句",
+            get_quote(),
+            "\n🌈 彩虹屁",
+            get_chp()
+        ])
+
+        return "\n".join(report)
 
     except requests.exceptions.RequestException as e:
         return f"🌐 {location['name']}网络请求异常：{str(e)}"
-    except KeyError as e:
-        return f"🔑 {location['name']}数据字段缺失：{str(e)}"
     except Exception as e:
-        return f"❌ {location['name']}未知错误：{str(e)}"
+        return f"❌ {location['name']}数据处理失败：{str(e)}"
+
+def format_date(date_str):
+    """格式化日期为 MM-DD 周x"""
+    try:
+        dt = datetime.fromisoformat(date_str.replace('+08:00', ''))
+        weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+        return f"{dt.month:02d}-{dt.day:02d} {weekdays[dt.weekday()]}"
+    except:
+        return date_str.split('T')[0][5:]
+
+def get_locations():
+    """获取地区配置"""
+    try:
+        locations = json.loads(os.getenv('WEATHER_LOCATIONS', '[]'))
+        return [loc for loc in locations if 'name' in loc and 'coords' in loc]
+    except Exception as e:
+        push_message(f"❌ 配置解析失败：{str(e)}")
+        return []
 
 if __name__ == "__main__":
-    get_weather_info()
+    locations = get_locations()
+    if not locations:
+        print("未配置有效地区信息")
+        exit()
+        
+    for loc in locations:
+        report = generate_weather_report(loc)
+        if report:
+            push_message(report)
