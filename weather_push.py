@@ -185,6 +185,7 @@ def generate_weather_report(location):
         precipitation = realtime.get('precipitation', {}).get('local', {}).get('intensity', 0)
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
+            f"\n",
             f"\n   ▸气温：{temp}°C → 体感{feels_like}°C",
             f"\n",
             f"\n   ▸风力：{get_wind_level(wind_speed)}",
@@ -203,6 +204,7 @@ def generate_weather_report(location):
 
         # 三日预报
         report.append("\n📅 三日天气走势\n")
+        report.append("")
         for i in range(3):
             date_str = format_date(daily['skycon'][i]['date'])
             skycon = translate_skycon(daily['skycon'][i]['value'])
@@ -212,20 +214,22 @@ def generate_weather_report(location):
             desc = daily['precipitation'][i].get('description', '无有效降水')
             report.append(
                 f"[{date_str}] {skycon}\n"
-                f"\n"
+                f""
                 f"  ▸ 气温：{temp_min}~{temp_max}°C\n"
-                f"\n"
+                f""
                 f"  ▸ 湿度：{get_humidity_desc(daily['humidity'][i]['avg'])}\n"
-                f"\n"
+                f""
                 f"  ▸ 降水概率{prob_rain}%\n"
-                f"\n"
+                f""
             )
 
         # 每日一句和彩虹屁
         report.extend([
             "\n📜 每日一句\n",
+            "\n"，
             get_quote(),
             "\n\n🌈 彩虹屁\n",
+            "\n",
             get_chp()
         ])
 
