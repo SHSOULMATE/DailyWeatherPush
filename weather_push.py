@@ -188,7 +188,7 @@ def generate_weather_report(location):
         report.extend([
             f"🌡️{location['name']} 实时气候速览",
             "\n",
-            f"  ▸气温：{temp}°C → 体感{feels_like}°C",
+            f"  ▸气温：{temp}°C（体感{feels_like}°C）",
             "\n",
             f"  ▸风力：{get_wind_level(wind_speed)}",
             "\n",
